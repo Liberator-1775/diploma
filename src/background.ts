@@ -47,7 +47,10 @@ chrome.runtime.onMessage.addListener(function (
                             languageCode: variables.targetLanguage,
                             name: variables.voiceName,
                           },
-                          audioConfig: { audioEncoding: "MP3" },
+                          audioConfig: {
+                            audioEncoding: "MP3",
+                            speakingRate: variables.speakingRate,
+                          },
                         }),
                       },
                     )
@@ -109,7 +112,10 @@ chrome.runtime.onMessage.addListener(function (
                     languageCode: "ru-RU",
                     name: "ru-RU-Wavenet-A",
                   },
-                  audioConfig: { audioEncoding: "MP3" },
+                  audioConfig: {
+                    audioEncoding: "MP3",
+                    speakingRate: variables.speakingRate,
+                  },
                 }),
               },
             )
