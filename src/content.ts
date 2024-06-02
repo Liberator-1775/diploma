@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference types="chrome-types/index.d.ts" />
+import { action, waitForElm } from "./utils";
 
 const observeDOM = (function () {
   const MutationObserver = window.MutationObserver;
@@ -10,29 +11,6 @@ const observeDOM = (function () {
     return mutationObserver;
   };
 })();
-
-async function waitForElm(selector: string): Promise<Element | null> {
-  return await new Promise((resolve) => {
-    const existingElement = document.querySelector(selector);
-    if (existingElement != null) {
-      resolve(existingElement);
-      return;
-    }
-    const observer = new MutationObserver(() => {
-      const element = document.querySelector(selector);
-      if (element != null) {
-        observer.disconnect();
-        resolve(element);
-      }
-    });
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
-  });
-}
-
-const element = await waitForElm("#feed_rows");
 
 function createAnchorWithImage(): HTMLAnchorElement {
   const image = new Image(24, 24);
@@ -45,6 +23,68 @@ function createAnchorWithImage(): HTMLAnchorElement {
   link.style.cssText = "display: flex";
   return link;
 }
+
+function handleAnchorClick(event: Event): void {
+  const postContent = (event.target as HTMLElement).parentElement?.parentElement
+    ?.parentElement;
+  const repliesNextAnchor = postContent?.querySelector(".replies_next");
+  if ((repliesNextAnchor as HTMLAnchorElement) !== null) {
+    (repliesNextAnchor as HTMLAnchorElement)?.click();
+    let messageSent = false;
+    const observePostContent = observeDOM(postContent as Element, function (m) {
+      m.forEach((record) => {
+        record.addedNodes.forEach((node) => {
+          const repliesNextAnchor = postContent?.querySelector(".replies_next");
+          if ((node as Element).className?.includes("replies_next")) {
+            (node as HTMLAnchorElement).click();
+          } else if (repliesNextAnchor != null) {
+            (repliesNextAnchor as HTMLAnchorElement).click();
+          } else if (repliesNextAnchor == null && !messageSent) {
+            messageSent = true;
+            observePostContent?.disconnect();
+            sendVoiceRequest(event.target as HTMLElement, postContent);
+          }
+        });
+      });
+    });
+  } else {
+    sendVoiceRequest(event.target as HTMLElement, postContent);
+  }
+}
+
+function sendVoiceRequest(
+  element: HTMLElement,
+  postContent: HTMLElement | null | undefined,
+): void {
+  let content = "";
+  content +=
+    "Пост от " +
+    element.parentElement?.parentElement?.querySelector(
+      "div.PostHeaderInfo.PostHeaderInfo--inHeader > div.PostHeaderTitle > div > h5 > a > span",
+    )?.textContent;
+  const comments = postContent?.querySelectorAll(".wall_reply_text");
+  if (comments != null)
+    for (const comment of comments) {
+      content +=
+        "\n\nКомментарий от " +
+        comment.parentElement?.parentElement?.parentElement?.querySelector(
+          ".author",
+        )?.textContent +
+        "\n" +
+        comment.textContent;
+    }
+
+  chrome.runtime
+    .sendMessage({
+      action: action.voiceRequest,
+      content,
+    })
+    .catch((e) => {
+      console.error("Error sending message: ", e);
+    });
+}
+
+const element = await waitForElm("#feed_rows");
 
 const postHeaders = document.querySelectorAll(
   ".post > div > div.PostHeader.PostHeader--compact.PostHeader--inPost.js-PostHeader",
@@ -69,57 +109,21 @@ observeDOM(element, function (m) {
   });
 });
 
-function handleAnchorClick(event: Event): void {
-  const postContent = (event.target as HTMLElement).parentElement?.parentElement
-    ?.parentElement;
-  const repliesNextAnchor = postContent?.querySelector(".replies_next");
-  (repliesNextAnchor as HTMLAnchorElement).click();
-  let messageSent = false;
-  const observePostContent = observeDOM(postContent as Element, function (m) {
-    m.forEach((record) => {
-      record.addedNodes.forEach((node) => {
-        const repliesNextAnchor = postContent?.querySelector(".replies_next");
-        if ((node as Element).className?.includes("replies_next")) {
-          (node as HTMLAnchorElement).click();
-        } else if (repliesNextAnchor != null) {
-          (repliesNextAnchor as HTMLAnchorElement).click();
-        } else if (repliesNextAnchor == null && !messageSent) {
-          messageSent = true;
-          observePostContent?.disconnect();
-          let content = "";
+let audio: HTMLAudioElement | undefined;
 
-          content +=
-            "Пост от " +
-            (
-              event.target as HTMLElement
-            ).parentElement?.parentElement?.querySelector(
-              "div.PostHeaderInfo.PostHeaderInfo--inHeader > div.PostHeaderTitle > div > h5 > a > span",
-            )?.textContent;
-          const comments = postContent?.querySelectorAll(".wall_reply_text");
-          if (comments != null)
-            for (const comment of comments) {
-              content +=
-                "\n\nКомментарий от " +
-                comment.parentElement?.parentElement?.parentElement?.querySelector(
-                  ".author",
-                )?.textContent +
-                "\n" +
-                comment.textContent;
-            }
-
-          chrome.runtime.sendMessage({ content }).catch((e) => {
-            console.error("Error sending message: ", e);
-          });
-        }
-      });
+chrome.runtime.onMessage.addListener(function (
+  message: { action: action; content: string },
+  sender,
+  sendResponse,
+) {
+  if (message.action === action.voiceResponse) {
+    if (audio !== undefined && !audio.ended) audio.pause();
+    audio = new Audio(`data:audio/mp3;base64,${message.content}`);
+    audio.play().catch((e) => {
+      console.error(e);
     });
-  });
-}
+  }
 
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse):
-  | boolean
-  | undefined {
-  /* new Audio(request); */
   return true;
 });
 

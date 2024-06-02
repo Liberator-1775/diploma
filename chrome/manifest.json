@@ -31,5 +31,10 @@
                 "https://developer.chrome.com/docs/webstore/*"
             ]
         }
+    ],
+    "permissions": ["storage", "activeTab", "scripting"],
+    "host_permissions": [
+        "https://texttospeech.googleapis.com/",
+        "https://api.deepl.com/"
     ]
 }

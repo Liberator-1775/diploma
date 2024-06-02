@@ -15,10 +15,7 @@ module.exports = {
     rules: [{ test: /\.ts$/, use: "ts-loader" }],
   },
   mode: "production",
-  plugins: [
-    new HtmlWebpackPlugin({
-      chunks: ["popup"],
-      filename: "popup.html",
-    }),
-  ],
+  resolve: {
+    extensions: [".ts"],
+  },
 };
