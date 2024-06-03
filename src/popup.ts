@@ -94,9 +94,9 @@ function handleDeeplSubmit(): void {
         saveToStorage("deeplApiKey", apiKey).catch((e) => {
           console.error(e);
         });
-        deeplApiKeyInput.classList.add("hidden");
-        deeplSubmitButton.classList.add("hidden");
+        deeplSection.classList.add("hidden");
         translationSection.classList.remove("hidden");
+        translationSection.classList.add("d-flex");
       } else {
         errorMessage.classList.remove("hidden");
       }
@@ -159,6 +159,7 @@ chrome.storage.local.get(
     if (data.deeplApiKey) {
       deeplSection.classList.add("hidden");
       translationSection.classList.remove("hidden");
+      translationSection.classList.add("d-flex");
     }
     if (data.translationEnabled) {
       translationToggle.checked = true;
