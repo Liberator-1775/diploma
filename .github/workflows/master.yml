@@ -1,7 +1,7 @@
 on: push
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -16,14 +16,23 @@ jobs:
       - name: yarn build
         run: yarn build
 
+      - name: Setup chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Pack extension
+        run: cd chrome; chrome --pack-extension=$(Get-Location)
+
       - name: Change test variables to secrets
-        run: sed 's/{googleApiKey}/${{secrets.GOOGLEAPIKEY}}/g' ./tests/Tests/Tests.cs; sed 's/{deeplApiKey}/${{secrets.DEEPLAPIKEY}}/g' ./tests/Tests/Tests.cs
+        run: (Get-Content ./tests/Tests/Tests.cs).Replace('{googleApiKey}', '${{secrets.GOOGLEAPIKEY}}') | Set-Content ./tests/Tests/Tests.cs; (Get-Content ./tests/Tests/Tests.cs).Replace('{deeplApiKey}', '${{secrets.DEEPLAPIKEY}}') | Set-Content ./tests/Tests/Tests.cs
 
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet
+        uses: actions/setup-dotnet@v4
 
-      - name: Run tests
-        run: dotnet test ./tests/Tests/Tests.csproj
+      - name: Build Tests
+        run: cd tests; dotnet build
+
+      - name: Run UnitTests
+        run: dotnet test tests
 
       - name: Upload zipped archive
         uses: actions/upload-artifact@v4
